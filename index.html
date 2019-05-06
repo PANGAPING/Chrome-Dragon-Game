@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>我是一只小恐龙</title>
+    <style>
+        body{
+            display: flex;
+        }
+        #game404{
+            margin: 200px auto;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game404" height="300" width="700"></canvas>
+    <img src="./images/spiritimg1.png" id="spirit" style="display:none;" alt="">
+<script>
+        var c = document.querySelector("#game404");
+        var ctx = c.getContext("2d");
+        var fontsize = 30;
+        ctx.font = `${fontsize}px Arial`
+        ctx.fillStyle = "#000"
+        var img = document.querySelector("#spirit");
+        var left = true;
+        var begin = false;
+        var died = true;
+        var scold = 1800;
+        var level = 1;
+        var nextFrame = null;
+     
+        //Set the frame rate 40
+        //Set the distance of text cloud and obstrac
+        //define the exchange foot time 
+        var lastChangeFoot = 0;
+        var changeFootInterval = 200;
+
+        var cloudDis = 100;
+        var obDis = 700;
+        //The attribute of little dragon
+        var positionX = 30;
+        var positionY = 200;
+        var jumping = false;
+        var jumpCount = 0;
+        var vY = 0;
+        //The text of cloud
+        var texts = ["自强","民主","文明","和谐"];
+        var textClouds = [];
+        var obstacles = [];
+        init();
+        //init function
+        function init(){
+                document.addEventListener("keydown",function(event){
+                    if (event.keyCode == 32 && !begin){
+                    	died = false;
+                    	textClouds = [];
+                    	obstacles = [];
+                        begin = true;
+                        addTextCloud(1,275,10);
+                        addObstacle();
+                        beginGame();
+                    }
+                    //当游戏已经开始之后空格代表小龙跳跃
+                    else if(event.keyCode == 32 && begin ){
+                    	jumpCount += 1;
+                    	if (jumpCount == 5){
+                    		jumpCount = 4;
+                    	}
+                        else{
+                        	vY = 8;
+                            jumping = true;
+                         //Init add
+                    }
+                        }
+                })
+        }
+        //If the game has began,call the draw infinite
+        function beginGame(){
+            draw();
+        }
+        //draw!
+        function draw(){
+            nextFrame =  requestAnimationFrame(draw);
+            ctx.clearRect(0,0,700,300);
+            ctx.save();
+
+            if (jumping){
+            	vY -= 0.3;
+            	positionY -= vY;
+            }
+            var lastCloud = textClouds[textClouds.length-1];
+            cloudDis = Math.floor(60+level*8+Math.random()*10)
+            if((700-(lastCloud.X+lastCloud.text.length*fontsize))>=cloudDis){
+                addTextCloud(0,0,Math.floor(11-level+Math.random()*5));
+            }
+            //Add.
+            var lastOb = obstacles[obstacles.length-1];
+            if ((700-(lastOb.X+lastOb.W))>=obDis){
+                addObstacle();
+            }
+
+            //If died and draws?
+            if (textClouds.length){
+            	textClouds.forEach(function(cloud){
+            	if (cloud.draw(ctx)==(-1)){
+            		textClouds.shift()
+            	}
+            })}
+         	var onRoute = textClouds.some(cloud=>cloud.checkOn(positionX,positionY))
+            if (onRoute){
+                positionY = 200;
+                jumping = false;
+                jumpCount = 0;
+            }
+            else if(positionY == 200){
+                jumping = true;
+                vY = -5;
+            }
+            else if (positionY > 400){
+                died = true;
+            }
+            obstacles.forEach(function(obstacle){
+            	if (obstacle.draw(ctx)==(-1)){
+            		obstacles.shift()
+            	}
+            	if (obstacle.checkOb(30,positionY)){
+            		died = true
+            	}
+            })
+            if (died){
+                ctx.drawImage(img,153,0,51,60,positionX,positionY,51,60);
+                gameover(ctx);
+                cancelAnimationFrame(nextFrame)
+            }
+            else if (jumping){
+                ctx.drawImage(img,102,0,51,60,positionX,positionY,51,60);
+            }
+            else{
+                ctx.drawImage(img,left?0:51,0,51,60,positionX,positionY,51,60);
+            }
+            ctx.font = `23px Arial`
+            ctx.fillText(`SCOLD:${scold}`,550,30)
+            ctx.restore();
+            var timeNow = new Date().getTime()
+            if (timeNow > lastChangeFoot + changeFootInterval){
+                left = !left;
+                lastChangeFoot = timeNow
+            }
+            scold += 1;
+            }
+
+       	function addTextCloud(x,y,n){
+            var addText = ''
+            for (let i=0;i<n;i++){
+                addText += texts[Math.floor(Math.random()*4)];
+            }
+       		var newcloud = new Cloud(x?x:700,y?y:275,addText,3);
+       		textClouds.push(newcloud);
+       	}
+       	function addObstacle(){
+       		var newObstacle = new Obstacle(700,250,20+Math.floor(Math.random()*60),50+Math.floor(Math.random()*100),3)
+       		obstacles.push(newObstacle);
+       	}
+        function gameover(ctx){
+        	begin = false
+            ctx.save()
+            ctx.font = "50px Arial"
+            ctx.fillText("GAME OVER",230,150)
+            ctx.restore()
+        }
+        //定义字体类
+        function Cloud(x,y,text,v){
+            this.X = x;
+            this.Y = y;
+            this.V = v?v:3;
+            this.text = text;
+        }
+        Cloud.prototype = {
+            draw: function(ctx){
+                if (this.X > -1000){
+                    this.X -= this.V;
+                    ctx.fillText(this.text,this.X,this.Y)
+                }
+                else{
+                    return -1;
+                } 
+            },
+            checkOn: function(x,y){
+                if (this.X<x+15&&this.X+this.text.length*fontsize+4>x+15&&195<y&&y<220){
+            		return true;}
+            	else{
+            		return false;
+            	}
+                }
+            }
+            //定义障碍类
+        function Obstacle(x,y,w,h,v){
+            this.X = x;
+            this.Y = y;
+            this.V = v?v:3;
+            this.W = w;
+            this.H = h;
+        }
+        Obstacle.prototype = {
+            draw: function(ctx){
+                if (this.X > -200){
+                	this.X -= this.V;
+                    ctx.fillRect(this.X,this.Y-this.H,this.W,this.H);
+                }
+                else{
+                    return -1;
+                }
+            },
+            checkOb: function(x,y){
+                if ((y>(this.Y-this.H))&&((x+25)>this.X&&(x+25)<this.X+this.W)){
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            }
+        }
+        
+</script>
+</body>
+</html>
